@@ -1,0 +1,63 @@
+
+module apb3_slave_fsm(clk,PRESETn,Psel,Penable,Pready,state);
+    input clk,PRESETn,Psel,Penable,Pready;
+    output reg[1:0] state;  //present state
+    
+    reg[1:0] ns;      //next state
+    
+    parameter IDLE = 2'b00;
+    parameter SETUP = 2'b01;
+    parameter ACCESS = 2'b10;
+    
+    
+    //present state logic
+   always @(posedge clk or negedge PRESETn)
+         begin
+            if(!PRESETn)
+                 state <= IDLE;
+            else
+                  state <= ns;
+         end
+         
+         
+     //next state logic
+     always@(*)
+        begin 
+            case(state)
+            
+         IDLE:
+              begin 
+                   if(Psel)
+                       ns =SETUP;
+                   else
+                       ns=IDLE;
+              end
+          
+          SETUP:
+                begin   
+                     if(Penable) 
+                         ns=ACCESS;
+                     else
+                        ns=SETUP;
+                end
+                
+                
+           ACCESS:
+               begin 
+                    if(Pready==0)
+                         ns=ACCESS;
+                     
+                    else if(Psel==1)  
+                          ns=SETUP;
+                          
+                    else   
+                          ns=IDLE;                          
+                end
+
+             default:
+                    ns=IDLE;
+                   
+       endcase 
+     end 
+       
+endmodule
