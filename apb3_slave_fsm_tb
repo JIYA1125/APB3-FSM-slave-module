@@ -1,0 +1,53 @@
+
+module apb3_slave_fsm_tb();
+    reg clk;
+    reg PRESETn;
+    reg Psel;
+    reg Penable;
+    reg Pready;
+    wire[1:0] state;
+    
+    apb3_slave_fsm dut(clk,PRESETn,Psel,Penable,Pready,state);
+    
+    initial 
+         begin
+           {clk,PRESETn,Psel,Penable,Pready}=0;
+         end
+         
+     always #5 clk = ~clk;
+     
+     initial 
+         begin 
+             PRESETn=0;
+             #10;
+             PRESETn = 1;
+             
+             //IDLE-SETUP
+             #10;
+             Psel=1;
+             Penable=0;
+             
+             //SETUP-ACCESS
+             #10;
+             Penable=1;
+             
+             //Stay in ACCESS
+             #20;
+             Pready=0;
+             
+             //ACEESS-STEUP(transfer exist)
+             #10;
+             Pready=1;
+             Psel=1;
+             
+             
+             //ACESS-IDLE(no transfer)
+             #20;
+             Psel=0;
+             
+             #20;
+             $finish;
+             
+         end
+    
+endmodule
