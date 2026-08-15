@@ -1,0 +1,300 @@
+
+
+### 🔹 Overview
+
+This project implements an **APB3 (Advanced Peripheral Bus 3) Slave Finite State Machine (FSM)** using **Verilog HDL**. APB3 is a low-complexity, low-power communication protocol commonly used for connecting peripheral devices to a processor or system bus.
+
+The APB3 Slave FSM controls the sequence of an APB transaction using three fundamental states:
+
+* 🟢 **IDLE**
+* 🟡 **SETUP**
+* 🔴 **ACCESS**
+
+The design monitors important APB control signals such as **PSEL, PENABLE, and PREADY** to ensure that each bus transaction follows the correct protocol timing.
+
+The RTL design is simulated and verified using **Xilinx Vivado**.
+
+---
+
+## 🔹 APB3 Transfer Operation
+
+An APB3 transfer occurs in two main phases:
+
+### 1️⃣ SETUP Phase
+
+The master starts a transfer by asserting:
+
+* `PSEL = 1`
+* `PENABLE = 0`
+
+During this phase, the address and control information become valid.
+
+### 2️⃣ ACCESS Phase
+
+In the following clock cycle:
+
+* `PSEL = 1`
+* `PENABLE = 1`
+
+The actual data transfer takes place. The slave uses **PREADY** to indicate whether it has completed the transfer.
+
+---
+
+# 🔹 FSM State Logic
+
+## 🟢 1. IDLE State
+
+The **IDLE state** represents the inactive condition of the APB slave.
+
+**Signal conditions:**
+
+* `PSEL = 0`
+* `PENABLE = 0`
+* No active transfer
+
+The FSM continuously waits for the APB master to select the peripheral.
+
+### Transition
+
+If:
+
+`PSEL = 1`
+
+then:
+
+**IDLE → SETUP**
+
+```text
+        PSEL = 1
+IDLE ─────────────→ SETUP
+```
+
+---
+
+## 🟡 2. SETUP State
+
+The **SETUP state** represents the beginning of an APB transaction.
+
+**Signal conditions:**
+
+* `PSEL = 1`
+* `PENABLE = 0`
+
+The address, write/read control, and other required information are established during this phase.
+
+The SETUP phase lasts for **one clock cycle**.
+
+### Transition
+
+After one clock cycle:
+
+**SETUP → ACCESS**
+
+```text
+SETUP
+  │
+  │ Next Clock
+  ↓
+ACCESS
+```
+
+---
+
+## 🔴 3. ACCESS State
+
+The **ACCESS state** represents the active data transfer phase.
+
+**Signal conditions:**
+
+* `PSEL = 1`
+* `PENABLE = 1`
+
+The slave performs the requested read or write operation.
+
+The **PREADY** signal determines whether the slave is ready to complete the transaction.
+
+### Case 1: `PREADY = 0`
+
+The slave is not ready.
+
+Therefore, the FSM remains in ACCESS until the slave asserts `PREADY`.
+
+```text
+        PREADY = 0
+       ┌──────────┐
+       ↓          │
+    ACCESS ───────┘
+```
+
+### Case 2: `PREADY = 1` and `PSEL = 1`
+
+The current transfer has completed and another transfer is already selected.
+
+Therefore:
+
+**ACCESS → SETUP**
+
+```text
+ACCESS ──→ SETUP
+ PREADY=1
+ PSEL=1
+```
+
+### Case 3: `PREADY = 1` and `PSEL = 0`
+
+The current transfer has completed and there is no new transfer.
+
+Therefore:
+
+**ACCESS → IDLE**
+
+```text
+ACCESS ──→ IDLE
+ PREADY=1
+ PSEL=0
+```
+
+---
+
+# 🔹 Complete FSM Flow
+
+```text
+                    PSEL = 1
+             ┌──────────────────┐
+             │                  ↓
+          ┌───────┐        ┌────────┐
+          │ IDLE  │───────→│ SETUP  │
+          └───────┘        └────────┘
+             ↑                  │
+             │                  │
+             │              Next Clock
+             │                  │
+             │                  ↓
+             │             ┌─────────┐
+             │             │ ACCESS  │
+             │             └─────────┘
+             │              │       │
+             │              │       │
+     PREADY=1, PSEL=0       │       │ PREADY=0
+             │              │       │
+             └──────────────┘       │
+                                    │
+                              Stay in ACCESS
+                                    │
+                                    │
+                         PREADY=1, PSEL=1
+                                    │
+                                    ↓
+                                  SETUP
+```
+
+---
+
+# 🔹 APB3 Signal Behavior
+
+| FSM State  | PSEL | PENABLE | Function               |
+| ---------- | ---: | ------: | ---------------------- |
+| **IDLE**   |    0 |       0 | Waiting for a transfer |
+| **SETUP**  |    1 |       0 | Address/control phase  |
+| **ACCESS** |    1 |       1 | Data transfer phase    |
+
+### Important Signals
+
+* **PSEL** → Selects the APB peripheral/slave.
+* **PENABLE** → Indicates the ACCESS phase.
+* **PREADY** → Indicates that the slave can complete the transfer.
+* **PADDR** → Carries the peripheral address.
+* **PWDATA** → Carries write data.
+* **PRDATA** → Carries read data.
+* **PSLVERR** → Indicates an error condition, when supported by the design.
+
+---
+
+# 🔹 Working Principle
+
+The APB3 FSM operates according to the following sequence:
+
+```text
+No Transfer
+     ↓
+   IDLE
+     ↓
+ PSEL = 1
+     ↓
+   SETUP
+ PSEL = 1
+ PENABLE = 0
+     ↓
+ Next Clock
+     ↓
+   ACCESS
+ PSEL = 1
+ PENABLE = 1
+     ↓
+ Check PREADY
+     ↓
+ ┌───────────────┐
+ │               │
+PREADY=0      PREADY=1
+ │               │
+ ↓               ↓
+ACCESS      Check PSEL
+                 ↓
+          ┌──────┴──────┐
+          ↓             ↓
+       PSEL=1        PSEL=0
+          ↓             ↓
+        SETUP         IDLE
+```
+
+---
+
+# 🔹 Advantages
+
+* ⚡ **Simple and efficient architecture**
+* 🔄 Clearly defined FSM-based operation
+* 🚌 Supports standard APB transfer sequencing
+* ⏱️ Provides predictable clock-based timing
+* 🔧 Easy to implement and debug in FPGA designs
+* 💻 Suitable for Verilog RTL implementation
+* 🧪 Easily verified using simulation waveforms
+* 🔌 Useful for connecting low-speed peripherals
+
+---
+
+# 🔹 Applications
+
+APB3-based designs are commonly used for:
+
+* 🖥️ **Microprocessor peripheral interfaces**
+* 🔢 **Timers and counters**
+* 🔌 **GPIO controllers**
+* 📡 **UART and communication peripherals**
+* ⚙️ **PWM controllers**
+* 🌡️ **Sensor interfaces**
+* 💾 **Control and status registers**
+* 🧩 **FPGA and SoC designs**
+
+---
+
+# 🔹 Simulation and Verification
+
+The design can be simulated in **Xilinx Vivado** by applying different combinations of `PSEL`, `PENABLE`, and `PREADY`.
+
+The simulation waveform can verify:
+
+1. **IDLE → SETUP** when `PSEL` becomes high.
+2. **SETUP → ACCESS** on the following clock cycle.
+3. ACCESS remains active while `PREADY = 0`.
+4. **ACCESS → SETUP** when `PREADY = 1` and `PSEL = 1`.
+5. **ACCESS → IDLE** when `PREADY = 1` and `PSEL = 0`.
+
+This confirms that the FSM follows the expected APB3 transaction sequence.
+
+---
+
+# 🔹 Conclusion
+
+The **APB3 Slave FSM using Verilog HDL** demonstrates the implementation of a standard peripheral bus protocol using a **three-state finite state machine**. The design correctly manages the **IDLE, SETUP, and ACCESS** phases while using `PSEL`, `PENABLE`, and `PREADY` for transaction control.
+
+The project provides practical knowledge of **AMBA APB3 protocol, FSM design, RTL coding, synchronous digital systems, and Vivado simulation**. It can serve as a foundation for developing more complex **SoC, FPGA, and peripheral-interface designs**.
